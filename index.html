@@ -231,26 +231,26 @@ body::before {
 /* ============ KEYBOARD ============ */
 .keyboard {
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
   padding: 0 4px;
   -webkit-user-select: none;
   user-select: none;
 }
-.kb-row { display: flex; justify-content: center; gap: 5px; }
+.kb-row { display: flex; justify-content: center; gap: 7px; }
 .key {
-  height: 56px;
-  min-width: 32px;
+  height: 62px;
+  min-width: 34px;
   flex: 1 1 0;
-  max-width: 52px;
+  max-width: 60px;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--panel);
   color: var(--text);
   font-family: var(--font);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -266,7 +266,7 @@ body::before {
   outline-offset: 1px;
 }
 .key:active { transform: scale(0.93); }
-.key.wide { max-width: 74px; flex: 1.5 1 0; }
+.key.wide { max-width: 86px; flex: 1.5 1 0; }
 .key.correct  { background: var(--mint);  color: #0B0F0E; box-shadow: 0 0 10px rgba(61,220,145,0.25); }
 .key.present  { background: var(--amber); color: #0B0F0E; }
 .key.absent   { background: var(--absent); color: var(--text-dim); }
@@ -529,17 +529,17 @@ body::before {
   .board { max-width: 300px; gap: 3px; }
   .row { gap: 3px; }
   .tile { font-size: 1.15rem; border-width: 1.5px; }
-  .key { height: 42px; font-size: 0.68rem; max-width: 36px; }
-  .key.wide { max-width: 52px; }
-  .kb-row { gap: 3px; }
+  .key { height: 48px; font-size: 0.75rem; max-width: 40px; }
+  .key.wide { max-width: 60px; }
+  .kb-row { gap: 4px; }
   .header { padding: 10px 8px 6px; }
   .wordmark { font-size: 1rem; }
   .stat-summary .ss-num { font-size: 1.2rem; }
 }
 @media (min-width: 768px) {
   .board { max-width: 370px; }
-  .key { height: 52px; max-width: 48px; }
-  .key.wide { max-width: 68px; }
+  .key { height: 60px; max-width: 56px; }
+  .key.wide { max-width: 80px; }
   .modal-panel { padding: 32px 28px 26px; }
 }
 @media (hover: hover) {
