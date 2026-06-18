@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0F0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>pangea8 · word game</title>
+<meta name="description" content="A Wordle-style word game by pangea8 — guess the 5-letter word in 6 tries. IELTS vocabulary trainer.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ CSS VARIABLES — pangea8 brand ============ */
+:root {
+  --bg:        #0B0F0E;
+  --panel:     #121A17;
+  --grid-line: rgba(61, 220, 145, 0.07);
+  --mint:      #3DDC91;
+  --mint-dim:  #2BA770;
+  --amber:     #D8A93D;
+  --absent:    #2A322E;
+  --tile-empty-border: rgba(61,220,145,0.18);
+  --text:      #EAF2EE;
+  --text-dim:  #8A9690;
+  --red:       #E0556A;
+  --red-dim:   #B03A4C;
+  --font: 'Poppins', system-ui, -apple-system, sans-serif;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --transition: 0.2s ease;
+}
+
+/* ============ RESET & GLOBAL ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  position: relative;
+}
+/* Subtle grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 48px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 48px);
+}
+
+/* ============ HEADER ============ */
+.header {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 520px;
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 180px;
+  background: radial-gradient(ellipse at center, rgba(61,220,145,0.10) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+.brand svg { flex-shrink: 0; }
+.wordmark {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+.wordmark .eight { color: var(--mint); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--tile-empty-border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-weight: 700;
+  transition: all var(--transition);
+  -webkit-user-select: none;
+}
+.icon-btn:hover, .icon-btn:focus-visible {
+  color: var(--mint);
+  border-color: var(--mint);
+  outline: none;
+  box-shadow: 0 0 12px rgba(61,220,145,0.25);
+}
+.mode-toggle {
+  display: flex;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--tile-empty-border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+.mode-btn {
+  padding: 6px 13px;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.mode-btn.active { background: var(--mint-dim); color: #fff; }
+.mode-btn:hover:not(.active) { color: var(--text); }
+
+/* ============ MAIN GAME AREA ============ */
+.main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 520px;
+  padding: 0 8px 12px;
+}
+
+/* ============ BOARD ============ */
+.board {
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+  gap: 5px;
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 340 / 408;
+  margin: 0 auto 16px;
+  padding: 0 4px;
+}
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+.tile {
+  aspect-ratio: 1 / 1;
+  border: 2px solid var(--tile-empty-border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: clamp(1.3rem, 3.5vw, 1.8rem);
+  text-transform: uppercase;
+  color: var(--text);
+  transition: border-color var(--transition), background var(--transition), transform 0.08s ease;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.tile.filled {
+  border-color: rgba(61,220,145,0.35);
+  animation: popLetter 0.10s ease;
+}
+.tile.correct {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: #0B0F0E;
+  box-shadow: 0 0 14px rgba(61,220,145,0.30);
+}
+.tile.present {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #0B0F0E;
+}
+.tile.absent {
+  background: var(--absent);
+  border-color: var(--absent);
+  color: var(--text-dim);
+}
+.tile.reveal { animation: tileFlip 0.50s ease forwards; }
+.tile.reveal.correct  { animation-delay: inherit; }
+.tile.reveal.present  { animation-delay: inherit; }
+.tile.reveal.absent   { animation-delay: inherit; }
+.row.shake { animation: rowShake 0.45s ease; }
+.row.bounce .tile { animation: tileBounce 0.40s ease forwards; }
+
+/* ============ KEYBOARD ============ */
+.keyboard {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.kb-row { display: flex; justify-content: center; gap: 4px; }
+.key {
+  height: 48px;
+  min-width: 28px;
+  flex: 1 1 0;
+  max-width: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.key:hover, .key:focus-visible {
+  background: #1E2B25;
+  outline: 2px solid var(--mint);
+  outline-offset: 1px;
+}
+.key:active { transform: scale(0.93); }
+.key.wide { max-width: 62px; flex: 1.5 1 0; }
+.key.correct  { background: var(--mint);  color: #0B0F0E; box-shadow: 0 0 10px rgba(61,220,145,0.25); }
+.key.present  { background: var(--amber); color: #0B0F0E; }
+.key.absent   { background: var(--absent); color: var(--text-dim); }
+.key svg { pointer-events: none; }
+.spacer-half { flex: 0.25 1 0; min-width: 4px; max-width: 12px; }
+
+/* ============ TOAST ============ */
+.toast-container {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 20px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 1px solid var(--tile-empty-border);
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  animation: toastIn 0.30s ease, toastOut 0.30s ease 1.8s forwards;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* ============ MODALS ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.20s ease;
+}
+.modal-overlay.hidden { display: none; }
+.modal-panel {
+  background: var(--panel);
+  border: 1px solid var(--tile-empty-border);
+  border-radius: 14px;
+  padding: 28px 22px 22px;
+  max-width: 380px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: modalPop 0.25s ease;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  position: relative;
+}
+.modal-panel h2 {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-bottom: 14px;
+  color: var(--mint);
+  text-align: center;
+}
+.modal-panel p, .modal-panel li {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.modal-panel .answer-word {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-align: center;
+  margin: 8px 0;
+}
+.modal-panel .definition-block {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 12px 0;
+  border: 1px solid var(--grid-line);
+}
+.modal-panel .definition-block .def-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mint);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.modal-panel .definition-block .def-text { font-size: 0.85rem; color: var(--text); }
+.modal-panel .definition-block .def-example {
+  font-size: 0.80rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 4px;
+}
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: none;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+.btn-primary {
+  background: var(--mint);
+  color: #0B0F0E;
+  box-shadow: 0 0 16px rgba(61,220,145,0.25);
+}
+.btn-primary:hover, .btn-primary:focus-visible {
+  background: #4FF0A8;
+  box-shadow: 0 0 24px rgba(61,220,145,0.40);
+  outline: none;
+}
+.btn-secondary {
+  background: var(--absent);
+  color: var(--text);
+  border: 1px solid var(--tile-empty-border);
+}
+.btn-secondary:hover, .btn-secondary:focus-visible { background: #35403A; outline: none; }
+.close-modal {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition);
+}
+.close-modal:hover { color: var(--text); }
+
+/* Stats bar chart */
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+  font-size: 0.82rem;
+}
+.stat-label { width: 20px; text-align: right; color: var(--text-dim); font-weight: 600; }
+.stat-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 16px; overflow: hidden; }
+.stat-bar {
+  height: 100%;
+  background: var(--mint);
+  border-radius: 4px;
+  min-width: 6px;
+  transition: width 0.4s ease;
+}
+.stat-bar.zero { background: var(--absent); min-width: 1px; }
+.stat-count { width: 28px; color: var(--text); font-weight: 700; font-size: 0.78rem; }
+
+.stat-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.stat-summary .ss-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.stat-summary .ss-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.help-example { display: flex; gap: 6px; margin: 10px 0; }
+.help-tile {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); font-weight: 800; font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* ============ KEYFRAMES ============ */
+@keyframes popLetter {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+@keyframes tileFlip {
+  0%   { transform: rotateX(0deg); }
+  45%  { transform: rotateX(90deg); }
+  55%  { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+@keyframes rowShake {
+  0%, 100% { transform: translateX(0); }
+  10%  { transform: translateX(-6px); }
+  20%  { transform: translateX(5px); }
+  30%  { transform: translateX(-4px); }
+  40%  { transform: translateX(3px); }
+  50%  { transform: translateX(-2px); }
+  60%  { transform: translateX(2px); }
+  70%  { transform: translateX(-1px); }
+  80%  { transform: translateX(1px); }
+}
+@keyframes tileBounce {
+  0%   { transform: translateY(0); }
+  30%  { transform: translateY(-10px); }
+  50%  { transform: translateY(2px); }
+  70%  { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+@keyframes toastIn {
+  0% { opacity: 0; transform: translateY(-16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes modalPop {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 380px) {
+  .board { max-width: 300px; gap: 3px; }
+  .row { gap: 3px; }
+  .tile { font-size: 1.15rem; border-width: 1.5px; }
+  .key { height: 42px; font-size: 0.68rem; max-width: 36px; }
+  .key.wide { max-width: 52px; }
+  .kb-row { gap: 3px; }
+  .header { padding: 10px 8px 6px; }
+  .wordmark { font-size: 1rem; }
+  .stat-summary .ss-num { font-size: 1.2rem; }
+}
+@media (min-width: 768px) {
+  .board { max-width: 370px; }
+  .key { height: 52px; max-width: 48px; }
+  .key.wide { max-width: 68px; }
+  .modal-panel { padding: 32px 28px 26px; }
+}
+@media (hover: hover) {
+  .key:hover { background: #1E2B25; }
+  .key.correct:hover  { background: #4FF0A8; }
+  .key.present:hover  { background: #EABB50; }
+  .key.absent:hover   { background: #37423C; }
+}
+</style>
+</head>
+<body>
+
+<header class="header" role="banner">
+  <div class="brand" aria-label="pangea8 word game">
+    <svg viewBox="0 0 100 100" width="34" height="34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g stroke="#3DDC91" stroke-width="7" stroke-linecap="round">
+        <line x1="50" y1="12" x2="50" y2="34"/>
+        <line x1="50" y1="66" x2="50" y2="88"/>
+        <line x1="12" y1="50" x2="34" y2="50"/>
+        <line x1="66" y1="50" x2="88" y2="50"/>
+        <line x1="23" y1="23" x2="38" y2="38"/>
+        <line x1="62" y1="62" x2="77" y2="77"/>
+        <line x1="77" y1="23" x2="62" y2="38"/>
+        <line x1="38" y1="62" x2="23" y2="77"/>
+      </g>
+    </svg>
+    <span class="wordmark">pangea<span class="eight">8</span></span>
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="btnHelp" aria-label="How to play" title="How to play">?</button>
+    <button class="icon-btn" id="btnStats" aria-label="Statistics" title="Statistics">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <rect x="3" y="12" width="4" height="9" rx="1"/>
+        <rect x="10" y="7" width="4" height="14" rx="1"/>
+        <rect x="17" y="3" width="4" height="18" rx="1"/>
+      </svg>
+    </button>
+    <div class="mode-toggle" role="radiogroup" aria-label="Game mode">
+      <button class="mode-btn active" id="btnDaily" role="radio" aria-checked="true">Daily</button>
+      <button class="mode-btn" id="btnUnlimited" role="radio" aria-checked="false">Unlimited</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="board" id="board" aria-label="Game board, 6 rows of 5 tiles" role="grid"></div>
+  <div class="keyboard" id="keyboard" aria-label="On-screen keyboard" role="group"></div>
+</main>
+
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+<div class="sr-only" aria-live="polite" aria-atomic="true" id="ariaLive"></div>
+
+<div class="modal-overlay hidden" id="helpModal" role="dialog" aria-modal="true" aria-label="How to play">
+  <div class="modal-panel">
+    <button class="close-modal" aria-label="Close help" id="btnHelpClose">&times;</button>
+    <h2>How to Play</h2>
+    <p>Guess the hidden 5-letter word in <strong>6 tries</strong>.</p>
+    <p style="margin-top:8px;">After each guess, the tiles show how close you are:</p>
+    <div class="help-example">
+      <div class="help-tile" style="background:var(--mint);color:#0B0F0E;border:2px solid var(--mint);">G</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">R</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">E</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">A</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">T</div>
+    </div>
+    <p style="font-size:0.82rem;"><span style="color:var(--mint);font-weight:700;">Green</span> — correct letter, correct spot.</p>
+    <div class="help-example">
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">S</div>
+      <div class="help-tile" style="background:var(--amber);color:#0B0F0E;border:2px solid var(--amber);">H</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">I</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">F</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">T</div>
+    </div>
+    <p style="font-size:0.82rem;"><span style="color:var(--amber);font-weight:700;">Amber</span> — correct letter, wrong spot.</p>
+    <div class="help-example">
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">B</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">L</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">A</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">N</div>
+      <div class="help-tile" style="background:var(--absent);color:var(--text-dim);border:2px solid var(--absent);">K</div>
+    </div>
+    <p style="font-size:0.82rem;"><span style="color:var(--text-dim);font-weight:700;">Gray</span> — letter not in the word.</p>
+    <p style="margin-top:8px;font-size:0.82rem;"><strong>IELTS bonus:</strong> after each solve, learn the word's definition + example sentence.</p>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="statsModal" role="dialog" aria-modal="true" aria-label="Statistics">
+  <div class="modal-panel">
+    <button class="close-modal" aria-label="Close statistics" id="btnStatsClose">&times;</button>
+    <h2>Your Stats</h2>
+    <div class="stat-summary" id="statSummary"></div>
+    <p style="text-align:center;font-weight:600;margin-bottom:8px;color:var(--text);font-size:0.82rem;">Guess Distribution</p>
+    <div id="guessDist"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="resultModal" role="dialog" aria-modal="true" aria-label="Game result">
+  <div class="modal-panel" id="resultPanel"></div>
+</div>
+
+<script>
+/* ==================================================================
+   pangea8 Word Game — vanilla JS, no dependencies
+   ================================================================== */
+
+const ANSWERS = [
+  { word:"ABIDE", def:"to accept or act according to a rule", ex:"You must abide by the terms." },
+  { word:"ACUTE", def:"present to a severe degree; sharp", ex:"An acute shortage of housing." },
+  { word:"ADAPT", def:"to change in order to suit new conditions", ex:"Species must adapt to survive." },
+  { word:"ADOPT", def:"to take on or start using something new", ex:"The company will adopt a new policy." },
+  { word:"ALTER", def:"to make something different; change", ex:"We may need to alter our plans." },
+  { word:"AMEND", def:"to make minor changes to improve", ex:"The contract was amended yesterday." },
+  { word:"ARGUE", def:"to give reasons for or against something", ex:"Scholars argue that the data is flawed." },
+  { word:"ARISE", def:"to come into being; to occur", ex:"Problems may arise during the project." },
+  { word:"ASPECT",def:"a particular part or feature of something", ex:"Every aspect of the plan was reviewed." },
+  { word:"ASSET", def:"a useful or valuable thing or quality", ex:"Her experience is a great asset." },
+  { word:"AUDIT", def:"an official inspection of accounts", ex:"The firm conducts an annual audit." },
+  { word:"AWARE", def:"having knowledge or perception of something", ex:"Students must be aware of the risks." },
+  { word:"BRIEF", def:"lasting only a short time; concise", ex:"She gave a brief summary of the report." },
+  { word:"BROAD", def:"covering a wide range; general", ex:"The course covers a broad range of topics." },
+  { word:"BUDGET",def:"an estimate of income and expenditure", ex:"The project was completed under budget." },
+  { word:"BUILD", def:"to construct or develop gradually", ex:"We need to build a stronger case." },
+  { word:"CAUSE", def:"a reason for an action or condition", ex:"The study examines the cause of the trend." },
+  { word:"CHART", def:"a visual display of information", ex:"The chart shows population growth." },
+  { word:"CIVIL", def:"relating to ordinary citizens; polite", ex:"Civil society plays a key role." },
+  { word:"CLAIM", def:"to state something is true, often without proof", ex:"The author claims that habits matter most." },
+  { word:"CLASH", def:"a conflict or disagreement", ex:"A clash of opinions emerged in the debate." },
+  { word:"CORE",  def:"the central or most important part", ex:"The core issue is lack of funding." },
+  { word:"CRAFT", def:"skill in making things; a profession", ex:"Writing essays is a craft to develop." },
+  { word:"CRISIS",def:"a time of intense difficulty or danger", ex:"The financial crisis affected millions." },
+  { word:"CYCLE", def:"a series of events that repeat", ex:"The economic cycle is hard to predict." },
+  { word:"DEBATE",def:"a formal discussion on a topic", ex:"The debate focused on climate policy." },
+  { word:"DECLINE",def:"to become smaller, fewer, or worse", ex:"A decline in reading habits was noted." },
+  { word:"DELAY", def:"a period of time when something is late", ex:"The delay caused significant problems." },
+  { word:"DENSE", def:"closely compacted; thick", ex:"The report was dense with statistics." },
+  { word:"DEVICE",def:"a tool or piece of equipment", ex:"Mobile devices are now ubiquitous." },
+  { word:"DRAFT", def:"a preliminary version of a piece of writing", ex:"She revised the first draft thoroughly." },
+  { word:"DRAMA", def:"an exciting or emotional situation", ex:"The political drama unfolded rapidly." },
+  { word:"DRIFT", def:"a slow movement or change over time", ex:"A gradual drift toward urbanization." },
+  { word:"EASE",  def:"absence of difficulty; comfort", ex:"The software is known for its ease of use." },
+  { word:"ELITE", def:"a select group superior in ability", ex:"The elite universities attract top talent." },
+  { word:"EMERGE",def:"to become known or apparent", ex:"New patterns emerge from the data." },
+  { word:"ENACT", def:"to make into law; to put into practice", ex:"Parliament will enact the legislation." },
+  { word:"EQUAL", def:"being the same in quantity, size, or value", ex:"Equal access to education is vital." },
+  { word:"ERASE", def:"to remove or wipe out", ex:"You cannot erase the past." },
+  { word:"ERROR", def:"a mistake; something incorrect", ex:"A small error can skew the results." },
+  { word:"ETHIC", def:"a set of moral principles", ex:"A strong work ethic is valued by employers." },
+  { word:"EVOLVE",def:"to develop gradually over time", ex:"Languages evolve with society." },
+  { word:"EXERT", def:"to apply force or influence", ex:"The group tried to exert political pressure." },
+  { word:"EXIST", def:"to have actual being; to occur", ex:"Several theories exist on this topic." },
+  { word:"EXPERT",def:"a person highly knowledgeable in a field", ex:"Expert opinion was sought for the trial." },
+  { word:"EXPORT",def:"to send goods or ideas to another country", ex:"The country exports raw materials." },
+  { word:"FACTOR",def:"a circumstance contributing to a result", ex:"Cost is a major factor in decision-making." },
+  { word:"FOCUS", def:"the center of attention or activity", ex:"Keep your focus on the main argument." },
+  { word:"FORCE", def:"strength or power; to compel", ex:"Market forces drive innovation." },
+  { word:"FRAUD", def:"wrongful deception for gain", ex:"The investigation uncovered widespread fraud." },
+  { word:"FUND",  def:"a sum of money saved for a purpose", ex:"The research fund was approved." },
+  { word:"GLOBAL",def:"relating to the whole world", ex:"Global trade has expanded rapidly." },
+  { word:"GRADE", def:"a level of quality or rank", ex:"Students received their final grades." },
+  { word:"GRANT", def:"a sum of money given for a purpose", ex:"She received a research grant." },
+  { word:"GRASP", def:"to understand fully; to seize", ex:"It took time to grasp the concept." },
+  { word:"GROSS", def:"total; very obvious; unpleasant", ex:"The gross income was reported." },
+  { word:"GROWTH",def:"the process of increasing in size or value", ex:"Economic growth has slowed." },
+  { word:"GUIDE", def:"a person or thing that directs", ex:"Use this guide to structure your essay." },
+  { word:"HARSH", def:"cruel or severe; unpleasantly rough", ex:"The harsh conditions made life difficult." },
+  { word:"HENCE", def:"for this reason; therefore", ex:"Demand fell; hence, prices dropped." },
+  { word:"HIGHLIGHT",def:"to emphasize or draw attention to", ex:"The report highlights key findings." },
+  { word:"IDEAL", def:"perfect or most suitable", ex:"An ideal solution remains elusive." },
+  { word:"IMAGE", def:"a representation; public impression", ex:"The company wants to improve its image." },
+  { word:"IMPACT",def:"a strong effect or influence", ex:"The policy had a positive impact." },
+  { word:"IMPLY", def:"to suggest without stating directly", ex:"The data implies a strong correlation." },
+  { word:"INCOME",def:"money received on a regular basis", ex:"Household income affects educational outcomes." },
+  { word:"INDEX", def:"a systematic list; a measure of change", ex:"The consumer price index rose 2%." },
+  { word:"INNER", def:"situated inside; mental or spiritual", ex:"Inner motivation is key to success." },
+  { word:"INPUT", def:"contribution of information or effort", ex:"We value your input on this matter." },
+  { word:"ISSUE", def:"an important topic or problem", ex:"Climate change is a pressing issue." },
+  { word:"JOINT", def:"shared by two or more parties", ex:"A joint effort between agencies." },
+  { word:"JUDGE", def:"to form an opinion; a court official", ex:"Do not judge based on first impressions." },
+  { word:"LABEL", def:"a descriptive tag or category", ex:"Avoid putting a label on every student." },
+  { word:"LABOR", def:"work, especially physical; workers", ex:"Manual labor remains essential in many sectors." },
+  { word:"LAYER", def:"a level or thickness of something", ex:"Each layer of the argument must be sound." },
+  { word:"LEGAL", def:"relating to the law; permitted by law", ex:"The legal framework needs updating." },
+  { word:"LEVEL", def:"a relative position on a scale", ex:"The water level is rising." },
+  { word:"LOGIC", def:"reasoning conducted by strict principles", ex:"The logic behind the theory is sound." },
+  { word:"MAJOR", def:"important; significant in scale", ex:"A major shift in public opinion occurred." },
+  { word:"MEDIA", def:"means of mass communication", ex:"Social media influences public discourse." },
+  { word:"MERIT", def:"the quality of being good; worth", ex:"The proposal has considerable merit." },
+  { word:"MINOR", def:"lesser in importance or size", ex:"Only minor adjustments are needed." },
+  { word:"MORAL", def:"concerned with right and wrong", ex:"A moral dilemma faces policymakers." },
+  { word:"MOTIVE",def:"a reason for doing something", ex:"The motive behind the policy is unclear." },
+  { word:"MOUNT", def:"to increase in amount; to climb", ex:"Pressure continues to mount on the government." },
+  { word:"NICHE", def:"a specialized segment of a market", ex:"The product found its niche quickly." },
+  { word:"NORM",  def:"a standard or pattern considered typical", ex:"Social norms differ across cultures." },
+  { word:"OCCUR", def:"to happen; to come to mind", ex:"Changes occur gradually over time." },
+  { word:"OPTION",def:"a choice or alternative", ex:"Weigh each option before deciding." },
+  { word:"OUTPUT",def:"the amount produced; production", ex:"Industrial output increased this quarter." },
+  { word:"PANEL", def:"a group of people gathered to discuss", ex:"A panel of experts reviewed the findings." },
+  { word:"PAUSE", def:"a temporary stop; to hesitate", ex:"A brief pause can improve your speaking." },
+  { word:"PEAK",  def:"the highest point; maximum", ex:"The city reached its peak population in 1990." },
+  { word:"PERIOD",def:"a length of time; an era", ex:"The study covers a 10-year period." },
+  { word:"PHASE", def:"a distinct stage in a process", ex:"The project is in its initial phase." },
+  { word:"PLAIN", def:"simple; clear; a flat area", ex:"Explain it in plain language." },
+  { word:"PLOT",  def:"a secret plan; a storyline", ex:"The plot of the novel is complex." },
+  { word:"POLICY",def:"a course of action adopted by an organization", ex:"The new policy takes effect next month." },
+  { word:"PRECISE",def:"exact and accurate", ex:"Give a precise definition of the term." },
+  { word:"PREMIUM",def:"an amount paid; above usual quality", ex:"Consumers pay a premium for organic food." },
+  { word:"PRIME", def:"of the best quality; main", ex:"A prime example of successful reform." },
+  { word:"PRIOR", def:"existing or coming before in time", ex:"Prior experience is not required." },
+  { word:"PROBE", def:"to investigate thoroughly; an inquiry", ex:"The committee will probe the matter." },
+  { word:"PROFIT",def:"financial gain; benefit", ex:"The venture yielded a modest profit." },
+  { word:"PROOF", def:"evidence establishing a fact", ex:"There is no proof of the claim." },
+  { word:"PROSPECT",def:"the possibility of something happening", ex:"The prospect of change is exciting." },
+  { word:"QUOTA", def:"a fixed share or limit", ex:"Each country was assigned a quota." },
+  { word:"RANGE", def:"the area of variation; scope", ex:"A wide range of options is available." },
+  { word:"RATIO", def:"the quantitative relation between amounts", ex:"The student-teacher ratio is low." },
+  { word:"REALM", def:"a domain or field of activity", ex:"That lies outside the realm of science." },
+  { word:"REBEL", def:"a person who resists authority", ex:"The rebel group sought independence." },
+  { word:"REFORM",def:"to make changes to improve something", ex:"Education reform is a priority." },
+  { word:"REGION",def:"an area or division", ex:"The northern region saw the most growth." },
+  { word:"REJECT",def:"to refuse to accept or believe", ex:"The committee may reject the proposal." },
+  { word:"RELAX", def:"to become less tense or strict", ex:"Regulations may relax over time." },
+  { word:"REVEAL",def:"to make known; to uncover", ex:"The survey reveals interesting trends." },
+  { word:"RIGID", def:"stiff; unable to bend or adapt", ex:"Rigid rules can stifle creativity." },
+  { word:"RIVAL", def:"a competitor; competing", ex:"The two firms are fierce rivals." },
+  { word:"ROUTE", def:"a way or course taken", ex:"The trade route connected two continents." },
+  { word:"RURAL", def:"relating to the countryside", ex:"Rural areas lack adequate infrastructure." },
+  { word:"SCOPE", def:"the extent of an area or subject", ex:"That is beyond the scope of this essay." },
+  { word:"SECTOR",def:"a distinct part of the economy", ex:"The service sector is growing fast." },
+  { word:"SHIFT", def:"a change in position or direction", ex:"A shift in public attitudes is evident." },
+  { word:"SOLVE", def:"to find an answer to a problem", ex:"We must solve the underlying issue." },
+  { word:"STABLE",def:"not likely to change or fail; steady", ex:"A stable economy attracts investment." },
+  { word:"STANCE",def:"an attitude or position on an issue", ex:"The government's stance is clear." },
+  { word:"STRESS",def:"pressure or emphasis; to highlight", ex:"Stress the importance of early action." },
+  { word:"STRICT",def:"demanding that rules are obeyed; rigid", ex:"Strict guidelines must be followed." },
+  { word:"SURGE", def:"a sudden large increase", ex:"A surge in demand caught suppliers off guard." },
+  { word:"SURVEY",def:"a general view or examination; a poll", ex:"The survey collected 2,000 responses." },
+  { word:"SUSTAIN",def:"to maintain over time; to support", ex:"Can the planet sustain this level of consumption?" },
+  { word:"TARGET",def:"an objective or goal; to aim at", ex:"The team met its target ahead of schedule." },
+  { word:"TENURE",def:"the holding of an office; permanent post", ex:"Academic tenure provides job security." },
+  { word:"THEME", def:"a recurring idea or subject", ex:"The theme of identity runs through the novel." },
+  { word:"THESIS",def:"a long essay; a proposition to prove", ex:"Her thesis examined migration patterns." },
+  { word:"TOPIC", def:"a subject of discussion", ex:"Choose a topic you are passionate about." },
+  { word:"TOXIC", def:"poisonous; harmful", ex:"Toxic chemicals pollute the river." },
+  { word:"TRACE", def:"a mark or sign; to track", ex:"Researchers trace the origin of the virus." },
+  { word:"TREND", def:"a general direction of change", ex:"The trend toward remote work continues." },
+  { word:"TRIBE", def:"a social group sharing customs", ex:"Each tribe has its own traditions." },
+  { word:"TRUST", def:"firm belief in reliability; confidence", ex:"Trust is essential in any partnership." },
+  { word:"UNIQUE",def:"being the only one of its kind", ex:"Each culture has unique characteristics." },
+  { word:"URBAN", def:"relating to a town or city", ex:"Urban populations are growing fast." },
+  { word:"USAGE", def:"the way something is used; custom", ex:"Water usage must be reduced." },
+  { word:"VALID", def:"based on truth or reason; acceptable", ex:"That is a valid point." },
+  { word:"VALUE", def:"the importance or worth of something", ex:"The value of education cannot be overstated." },
+  { word:"VISION",def:"the ability to think about the future", ex:"A clear vision guides the organization." },
+  { word:"VITAL", def:"absolutely necessary; essential", ex:"Clean water is vital for health." },
+  { word:"WIDEN", def:"to make or become wider; broaden", ex:"We must widen our perspective." },
+  { word:"WORTH", def:"the value or importance of something", ex:"The policy is worth considering." },
+  { word:"YIELD", def:"to produce; to give way", ex:"High-yield crops feed more people." },
+  { word:"AGILE", def:"able to move quickly and easily", ex:"An agile approach to project management." },
+  { word:"ALLOW", def:"to permit or let happen", ex:"The rules allow some flexibility." },
+  { word:"AMPLE", def:"more than enough; plentiful", ex:"There is ample evidence to support this." },
+  { word:"ARRAY", def:"an impressive display or range", ex:"An array of options is available." },
+  { word:"AVOID", def:"to keep away from; to prevent", ex:"Avoid making assumptions." },
+  { word:"BIAS",  def:"prejudice in favor of or against", ex:"The study tried to eliminate bias." },
+  { word:"BLEND", def:"to mix together; a mixture", ex:"A blend of traditional and modern methods." },
+  { word:"BOOST", def:"to increase or improve", ex:"The policy aims to boost employment." },
+  { word:"CEASE", def:"to bring to an end; stop", ex:"Hostilities ceased after the treaty." },
+  { word:"CITE",  def:"to quote as evidence; to refer to", ex:"Cite your sources properly." },
+  { word:"COAST", def:"land near the sea; to move effortlessly", ex:"The coastal region is densely populated." },
+  { word:"COMMIT",def:"to pledge or dedicate oneself", ex:"Governments must commit to change." },
+  { word:"CRUDE", def:"in a raw or unrefined state", ex:"A crude estimate suggests 10% growth." },
+  { word:"DEPICT",def:"to represent or describe", ex:"The graph depicts the trend clearly." },
+  { word:"DERIVE",def:"to obtain from a source", ex:"The word derives from Latin." },
+  { word:"DURABLE",def:"able to last; long-lasting", ex:"Durable goods saw increased sales." },
+  { word:"ENABLE",def:"to make possible", ex:"Technology can enable better learning." },
+  { word:"ENSURE",def:"to make certain something happens", ex:"Ensure you include all relevant data." },
+  { word:"FLAW",  def:"a defect or imperfection", ex:"The argument has a major flaw." },
+  { word:"FLOURISH",def:"to grow or develop vigorously", ex:"The arts flourished during that period." },
+  { word:"FRAME", def:"to create or formulate; a structure", ex:"Frame your argument carefully." },
+  { word:"GENRE", def:"a category of art or literature", ex:"The genre of academic writing has rules." },
+  { word:"HABIT", def:"a settled regular practice", ex:"Reading is a good habit to cultivate." },
+  { word:"IMPOSE",def:"to force something on someone", ex:"The government may impose new taxes." },
+  { word:"INCLINE",def:"to tend toward; a slope", ex:"Data seems to incline toward that view." },
+  { word:"INITIAL",def:"existing at the beginning; first", ex:"The initial results were promising." },
+  { word:"INSIGHT",def:"deep understanding of a subject", ex:"The research provides valuable insights." },
+  { word:"INTACT",def:"not damaged or impaired", ex:"The original structure remains intact." },
+  { word:"LAUNCH",def:"to start or introduce something new", ex:"They plan to launch the product next year." },
+  { word:"LIKELY",def:"probable; expected to happen", ex:"The most likely outcome is growth." },
+  { word:"MAXIM", def:"a short statement of a general truth", ex:"The old maxim still holds true." },
+  { word:"MIGRATE",def:"to move from one place to another", ex:"People migrate for economic reasons." },
+  { word:"MODEST",def:"not large or showy; humble", ex:"A modest improvement was recorded." },
+  { word:"MUTUAL",def:"shared by two or more parties", ex:"Mutual understanding is the goal." },
+  { word:"NEUTRAL",def:"not supporting either side", ex:"A neutral stance was taken." },
+  { word:"NOTION",def:"an idea or belief", ex:"The notion of equality is fundamental." },
+  { word:"OBTAIN",def:"to get or acquire", ex:"Permission must be obtained in advance." },
+  { word:"OFFSET",def:"to counterbalance; compensate for", ex:"Gains offset the earlier losses." },
+  { word:"PARSE", def:"to analyze a sentence into parts", ex:"Parse the question carefully." },
+  { word:"PHYSICAL",def:"relating to the body or material things", ex:"Physical health affects mental health." },
+  { word:"PLUNGE",def:"to fall suddenly and sharply", ex:"Markets plunged after the announcement." },
+  { word:"POINT", def:"a specific idea or argument; a location", ex:"The main point is well-supported." },
+  { word:"PROMOTE",def:"to encourage or publicize", ex:"We must promote critical thinking." },
+  { word:"PURSUE",def:"to follow or chase; to engage in", ex:"She decided to pursue a master's degree." },
+  { word:"RECALL",def:"to remember; to bring back", ex:"Try to recall the main points." },
+  { word:"REFUTE",def:"to prove wrong or false", ex:"Evidence can refute the hypothesis." },
+  { word:"RELIEF",def:"a feeling of reassurance; aid", ex:"The news brought great relief." },
+  { word:"RENEW", def:"to resume after interruption; to extend", ex:"The government will renew the contract." },
+  { word:"REPOSE",def:"a state of rest; calm", ex:"The data brought repose to the debate." },
+  { word:"RESUME",def:"to begin again after a pause", ex:"Talks will resume next week." },
+  { word:"RETAIN",def:"to keep or continue to have", ex:"The company aims to retain skilled staff." },
+  { word:"REVISE",def:"to re-examine and make corrections", ex:"Revise your essay before submitting." },
+  { word:"SALIENT",def:"most noticeable or important", ex:"The salient features of the plan." },
+  { word:"SPHERE",def:"an area of activity or knowledge", ex:"That falls within the political sphere." },
+  { word:"STATUS",def:"relative social position; state", ex:"The current status of the project." },
+  { word:"STEADY",def:"regular and continuous; firm", ex:"A steady flow of investment." },
+  { word:"SUBMIT",def:"to present for consideration", ex:"Submit your application by the deadline." },
+  { word:"TEMPER",def:"to moderate; a state of mind", ex:"Temper your expectations with realism." },
+  { word:"TENDER",def:"gentle; an offer to do work", ex:"The company won the tender." },
+  { word:"UNIFY", def:"to make or become united", ex:"A theory that aims to unify the data." },
+  { word:"UTTER", def:"complete; to speak", ex:"That is utter nonsense." },
+  { word:"VAGUE", def:"unclear; not precise", ex:"The statement was too vague to be useful." },
+  { word:"VERGE", def:"the edge or border; to be close to", ex:"On the verge of a breakthrough." },
+  { word:"VIABLE",def:"capable of working successfully", ex:"A viable alternative was proposed." },
+  { word:"VOID",  def:"completely empty; null", ex:"The contract was declared void." },
+  { word:"WAVER", def:"to be indecisive; to fluctuate", ex:"She did not waver in her commitment." },
+  { word:"WHOLE", def:"complete; entire", ex:"The whole argument is flawed." },
+  { word:"WRATH", def:"extreme anger", ex:"The policy drew the wrath of critics." }
+];
+
+const ALLOWED_SET = new Set();
+ANSWERS.forEach(a => ALLOWED_SET.add(a.word));
+
+const ALLOWED_EXTRA = [
+  "ABACK","ABASE","ABBEY","ABHOR","ABODE","ABORT","ABOUT","ABOVE","ABUSE","ACHED",
+  "ACHES","ACIDS","ACORN","ACRES","ACTED","ACTOR","ACUTE","ADAGE","ADDED","ADEPT",
+  "ADMIN","ADMIT","ADOBE","ADORE","ADORN","ADULT","AFFIX","AFOOT","AFTER","AGAIN",
+  "AGAPE","AGATE","AGENT","AGILE","AGING","AGLOW","AGONY","AGREE","AHEAD","AIMED",
+  "AISLE","ALARM","ALBUM","ALERT","ALGAE","ALIEN","ALIGN","ALIKE","ALIVE","ALLAY",
+  "ALLEY","ALLOT","ALLOW","ALLOY","ALOFT","ALONE","ALONG","ALOOF","ALOUD","ALPHA",
+  "ALTAR","AMASS","AMAZE","AMBER","AMBLE","AMISS","AMONG","AMPLE","AMPLY","AMUSE",
+  "ANGEL","ANGER","ANGLE","ANGRY","ANGST","ANIME","ANKLE","ANNEX","ANNOY","ANNUL",
+  "ANODE","ANTIC","ANVIL","AORTA","APART","APHID","APNEA","APPLE","APPLY","APRON",
+  "APTLY","ARBOR","ARDOR","AREAS","ARENA","ARMED","ARMOR","AROMA","AROSE","ARRAY",
+  "ARROW","ARTSY","ASCOT","ASHEN","ASIDE","ASKED","ASKEW","ASSAY","ASSET","ASTER",
+  "ASTIR","ATLAS","ATONE","ATTIC","AUDIO","AUDIT","AUGER","AUGHT","AUNTY","AURAL",
+  "AVAIL","AVERT","AVOID","AWAIT","AWAKE","AWARD","AWARE","AWASH","AWFUL","AWOKE",
+  "AXIAL","AXIOM","AZURE","BACON","BADGE","BADLY","BAGEL","BAKER","BALER","BALMY",
+  "BANAL","BANJO","BARGE","BARON","BASAL","BASIC","BASIL","BASIN","BASIS","BASTE",
+  "BATCH","BATHE","BATON","BATTY","BAYOU","BEACH","BEADS","BEAST","BEATS","BEGAN",
+  "BEGET","BEGIN","BEIGE","BEING","BELCH","BELIE","BELLE","BELOW","BENCH","BERRY",
+  "BERTH","BESET","BETEL","BEVEL","BIDET","BIKER","BINGE","BIRCH","BIRTH","BISON",
+  "BITTY","BLACK","BLADE","BLAME","BLAND","BLANK","BLARE","BLAST","BLAZE","BLEAK",
+  "BLEAT","BLEED","BLEND","BLESS","BLIMP","BLIND","BLINK","BLISS","BLITZ","BLOAT",
+  "BLOCK","BLOKE","BLOND","BLOOD","BLOOM","BLOWN","BLUER","BLUFF","BLUNT","BLURB",
+  "BLURT","BLUSH","BOARD","BOAST","BONEY","BONUS","BOOBY","BOOMY","BOOST","BOOTH",
+  "BOSOM","BOSSY","BOTCH","BOUGH","BOUND","BOWEL","BOXER","BRACE","BRAID","BRAIN",
+  "BRAKE","BRAND","BRASH","BRASS","BRAVE","BRAVO","BRAWL","BRAWN","BREAD","BREAK",
+  "BREED","BRIAR","BRIBE","BRICK","BRIDE","BRIEF","BRINE","BRING","BRINK","BRINY",
+  "BRISK","BROAD","BROIL","BROKE","BROOD","BROOK","BROOM","BROTH","BROWN","BRUNT",
+  "BRUSH","BRUTE","BUDDY","BUDGE","BUGGY","BUGLE","BUILD","BUILT","BULGE","BULKY",
+  "BULLY","BUNCH","BUNNY","BURNT","BURST","BUSED","BUSTY","BUTCH","BUYER","BUZZY",
+  "CABIN","CABLE","CACAO","CACHE","CADET","CAGEY","CAMEL","CAMEO","CANAL","CANDY",
+  "CANNY","CANOE","CAPER","CARAT","CARDS","CARED","CARGO","CAROL","CARRY","CARVE",
+  "CASED","CASTE","CATCH","CATER","CAUSE","CAVIL","CEDAR","CHAFE","CHAIN","CHAIR",
+  "CHAMP","CHANT","CHAOS","CHARD","CHARM","CHART","CHASE","CHASM","CHEAP","CHEAT",
+  "CHECK","CHEEK","CHEER","CHESS","CHEST","CHICK","CHIDE","CHIEF","CHILD","CHILI",
+  "CHILL","CHIME","CHINA","CHIRP","CHOCK","CHOIR","CHOKE","CHORD","CHORE","CHOSE",
+  "CHUCK","CHUMP","CHUNK","CHURN","CIDER","CIGAR","CIRCA","CITIZ","CIVIC","CIVIL",
+  "CLACK","CLAIM","CLAMP","CLANG","CLANK","CLASH","CLASP","CLASS","CLEAN","CLEAR",
+  "CLERK","CLICK","CLIFF","CLIMB","CLING","CLINK","CLOAK","CLOCK","CLONE","CLOSE",
+  "CLOTH","CLOUD","CLOUT","CLOVE","CLOWN","CLUED","CLUMP","CLUNG","COACH","COAST",
+  "COCOA","CODEX","COHEN","COILS","COINS","COLON","COMET","COMFY","COMIC","COMMA",
+  "CONCH","CONDO","CONIC","COPSE","CORAL","CORER","CORNY","COUCH","COUGH","COULD",
+  "COUNT","COURT","COVEN","COVER","COVET","COWER","COYLY","CRACK","CRAFT","CRAMP",
+  "CRANE","CRANK","CRASH","CRASS","CRATE","CRAVE","CRAWL","CRAZE","CRAZY","CREAK",
+  "CREAM","CREDO","CREED","CREEK","CREEP","CREST","CRIME","CRIMP","CRISP","CROAK",
+  "CROOK","CROWD","CROWN","CRUDE","CRUEL","CRUMB","CRUSH","CRUST","CRYPT","CUBIC",
+  "CUMIN","CUPID","CURED","CURIO","CURLY","CURRY","CURVE","CYCLE","CYNIC","DAILY",
+  "DAIRY","DAISY","DANCE","DANDY","DATED","DATER","DAUNT","DAZED","DEALS","DEALT",
+  "DEATH","DEBAR","DEBIT","DEBUG","DECAL","DECAY","DECOY","DECRY","DEFER","DEIGN",
+  "DELAY","DELTA","DELVE","DEMON","DEMUR","DENIM","DENSE","DEPOT","DEPTH","DERBY",
+  "DESK","DETER","DETOX","DEUCE","DEVIL","DIARY","DICED","DICEY","DICKY","DIDST",
+  "DIGIT","DILDO","DIMLY","DINER","DINGO","DINGY","DIODE","DIRGE","DIRTY","DISCO",
+  "DITCH","DITTO","DITTY","DIVER","DIZZY","DODGE","DOGMA","DOILY","DOING","DOLED",
+  "DOMED","DONOR","DONUT","DOOMY","DOORS","DOPEY","DOTED","DOTTY","DOUBT","DOUGH",
+  "DOWDY","DOWER","DOWNY","DOWRY","DOZEN","DRAFT","DRAIN","DRAKE","DRAMA","DRANK",
+  "DRAPE","DRAWL","DRAWN","DREAD","DREAM","DRESS","DRIED","DRIER","DRIFT","DRILL",
+  "DRINK","DRIVE","DROLL","DRONE","DROOL","DROOP","DROVE","DROWN","DRUID","DRUNK",
+  "DRYER","DRYLY","DUCHY","DUKES","DUMPY","DUNCE","DUSKY","DUSTY","DUTCH","DWARF",
+  "DWELL","DWELT","DYING","EAGER","EAGLE","EARLY","EARTH","EASEL","EATEN","EAVES",
+  "EBONY","EDICT","EDIFY","EERIE","EGRET","EIGHT","EJECT","ELATE","ELBOW","ELDER",
+  "ELECT","ELEGY","ELITE","ELOPE","ELUDE","EMBED","EMBER","EMCEE","EMPTY","ENACT",
+  "ENDOW","ENEMA","ENEMY","ENJOY","ENNUI","ENROL","ENSUE","ENTER","ENTRY","ENVOY",
+  "EOSIN","EPOCH","EPOXY","EQUAL","ERASE","ERECT","ERODE","ERROR","ERUPT","ESSAY",
+  "ESTER","ETHER","ETHIC","ETHOS","EVADE","EVENT","EVERY","EVICT","EVOKE","EXACT",
+  "EXALT","EXCEL","EXERT","EXILE","EXIST","EXPEL","EXTOL","EXTRA","EXULT","EYING",
+  "FABLE","FACET","FAINT","FAIRY","FAITH","FAKER","FALSE","FANCY","FANNY","FARCE",
+  "FATAL","FATTY","FAULT","FAUNA","FEAST","FEIGN","FELLA","FENCE","FERAL","FERNS",
+  "FERRY","FESTS","FETAL","FETCH","FEVER","FIBER","FICUS","FIERY","FIFTH","FIFTY",
+  "FIGHT","FILCH","FILER","FILET","FILLY","FILMY","FILTH","FINAL","FINCH","FINER",
+  "FIRST","FISHY","FIXER","FIZZY","FJORD","FLAIL","FLAIR","FLAKE","FLAKY","FLAME",
+  "FLANK","FLARE","FLASH","FLASK","FLEET","FLESH","FLICK","FLIER","FLING","FLINT",
+  "FLIRT","FLOAT","FLOCK","FLOOD","FLOOR","FLORA","FLOSS","FLOUR","FLOWN","FLUFF",
+  "FLUID","FLUKE","FLUME","FLUNG","FLUNK","FLUSH","FLUTE","FLYER","FOAMY","FOCAL",
+  "FOCUS","FOGGY","FOIST","FOLIO","FOLKY","FOLLY","FORAY","FORCE","FORGE","FORGO",
+  "FORTE","FORTH","FORUM","FOUND","FRAIL","FRAME","FRANK","FRAUD","FREAK","FREED",
+  "FREER","FRESH","FRIAR","FRIED","FRILL","FRISK","FROCK","FRONT","FROST","FROWN",
+  "FROZE","FRUIT","FUGUE","FULLY","FUNGI","FUNKY","FUNNY","FUROR","FURRY","FUSED",
+  "FUSSY","FUTON","FUZZY","GABLE","GAFFE","GAILY","GAMER","GAMMA","GAMUT","GASSY",
+  "GATED","GAUDY","GAUGE","GAUNT","GAUZE","GAVEL","GAWKY","GAZER","GEESE","GENIE",
+  "GENRE","GHOST","GHOUL","GIANT","GIDDY","GIFTS","GIRLY","GIRTH","GIVEN","GIVER",
+  "GLADE","GLAND","GLARE","GLASS","GLAZE","GLEAM","GLEAN","GLIDE","GLINT","GLOAT",
+  "GLOBE","GLOOM","GLORY","GLOSS","GLOVE","GLYPH","GNASH","GNOME","GOING","GONER",
+  "GONNA","GOOEY","GOOFY","GOOSE","GORGE","GOUGE","GOURD","GRACE","GRADE","GRAFT",
+  "GRAIL","GRAIN","GRAND","GRANT","GRAPE","GRAPH","GRASP","GRASS","GRATE","GRAVE",
+  "GRAVY","GRAZE","GREAT","GREED","GREEN","GREET","GRIEF","GRILL","GRIME","GRIMY",
+  "GRIND","GRIPE","GROAN","GROIN","GROOM","GROPE","GROSS","GROUP","GROUT","GROVE",
+  "GROWL","GRUEL","GUARD","GUAVA","GUESS","GUEST","GUIDE","GUILD","GUILE","GUILT",
+  "GUISE","GULCH","GULLY","GUMBO","GUMMY","GUSTO","GUTSY","GUYOT","HABIT","HAIKU",
+  "HAIRY","HALVE","HANDY","HAPPY","HARDY","HAREM","HARPY","HARRY","HARSH","HASTE",
+  "HASTY","HATCH","HATER","HAUNT","HAVEN","HAVOC","HEART","HEATH","HEAVE","HEAVY",
+  "HEDGE","HEFTY","HEIST","HELIX","HELLO","HENCE","HERBS","HERON","HILLY","HINGE",
+  "HIPPO","HIPPY","HIRED","HITCH","HOARD","HOBBY","HOCUS","HOKEY","HOLDY","HOLER",
+  "HOLLY","HOMER","HONEY","HONOR","HORDE","HORNY","HORSE","HOTEL","HOTLY","HOUND",
+  "HOUSE","HOVEL","HOVER","HOWDY","HUBBY","HUFFY","HUGER","HUMAN","HUMID","HUMOR",
+  "HUMPH","HUMUS","HUNCH","HUNKY","HUNTS","HURRY","HURTS","HUSKY","HYENA","HYMEN",
+  "HYPER","ICILY","ICING","IDEAL","IDIOM","IDIOT","IDLER","IDYLL","IGLOO","ILIAC",
+  "IMAGE","IMBUE","IMPEL","IMPLY","INANE","INAPT","INCUR","INDEX","INDIE","INEPT",
+  "INERT","INFER","INGOT","INKED","INLAY","INLET","INNER","INPUT","INSET","INTER",
+  "INTRO","INURE","IONIC","IRATE","IRONY","ISLET","ISSUE","ITCHY","IVORY","JAUNT",
+  "JAZZY","JELLY","JERKY","JETTY","JEWEL","JIFFY","JOINT","JOIST","JOKER","JOLLY",
+  "JOULE","JOUSE","JUDGE","JUICE","JUICY","JUMBO","JUMPY","JUNTA","JUNTO","JUROR",
+  "KAPPA","KARMA","KAYAK","KEBAB","KEDGE","KEMPT","KHAKI","KIDDO","KILLS","KILNS",
+  "KINET","KINKY","KIOSK","KITTY","KIWIS","KLUTZ","KNACK","KNAVE","KNEAD","KNEEL",
+  "KNELL","KNELT","KNIFE","KNOCK","KNOLL","KNOWN","KOALA","KRONE","KROON","LABEL",
+  "LABOR","LADEN","LADLE","LAGER","LAITY","LANCE","LANDS","LAPEL","LAPSE","LARCH",
+  "LARGE","LARVA","LASER","LASSO","LATCH","LATER","LATHE","LATTE","LAUGH","LAYER",
+  "LEACH","LEAFY","LEAKY","LEANS","LEAPT","LEARN","LEASE","LEASH","LEAST","LEAVE",
+  "LEDGE","LEECH","LEERY","LEGAL","LEGIT","LEMMA","LEMON","LEMUR","LEPER","LETUP",
+  "LEVEE","LEVEL","LEVER","LIBEL","LIGHT","LIKEN","LILAC","LIMBO","LIMIT","LINEN",
+  "LINER","LINGO","LIPID","LISLE","LITHE","LITRE","LIVER","LLAMA","LOAMY","LOATH",
+  "LOBBY","LOCAL","LOCUS","LODGE","LOFTY","LOGIC","LOLLY","LOOSE","LORRY","LOSER",
+  "LOTUS","LOUSE","LOUSY","LOVER","LOWER","LOWLY","LOYAL","LUCID","LUCKY","LUMPY",
+  "LUNAR","LUNCH","LUNGE","LUPUS","LURCH","LURED","LURID","LYING","LYMPH","LYNCH",
+  "LYRIC","MACRO","MAGIC","MAJOR","MAKER","MAMBA","MANGE","MANGO","MANGY","MANIA",
+  "MANIC","MANLY","MANOR","MAPLE","MARCH","MARSH","MASON","MASSE","MATCH","MATEY",
+  "MAUVE","MAXIM","MAYBE","MAYOR","MEALY","MEANS","MEANT","MEATY","MEDAL","MEDIA",
+  "MEDIC","MELON","MERCY","MERGE","MERIT","MERRY","METAL","METER","METRO","MICRO",
+  "MIDGE","MIDST","MIGHT","MILKY","MIMIC","MINCE","MINDS","MINER","MINIM","MINOR",
+  "MINTY","MINUS","MIRTH","MISER","MISSY","MISTY","MITER","MOANS","MOCHA","MODAL",
+  "MODEL","MOGUL","MOIST","MOLAR","MOLDY","MONEY","MONTH","MOODY","MOOSE","MOPED",
+  "MORAL","MORPH","MOSSY","MOTEL","MOTIF","MOTOR","MOTTO","MOUND","MOUNT","MOURN",
+  "MOUSE","MOUTH","MOVER","MOVIE","MOWER","MUCKY","MUCUS","MUDDY","MULCH","MUMMY",
+  "MUNCH","MURAL","MURKY","MUSKY","MUSTY","MUTED","MUTER","NADIR","NAIVE","NANNY",
+  "NASAL","NASTY","NATAL","NAVAL","NEEDY","NEGRO","NEIGH","NERDY","NERVE","NEVER",
+  "NEWER","NEWLY","NICER","NICHE","NIECE","NIFTY","NIGHT","NINJA","NINNY","NINTH",
+  "NOBLE","NOBLY","NOISE","NOISY","NOMAD","NORTH","NOSEY","NOTCH","NOVEL","NUDGE",
+  "NULLS","NURSE","NUTTY","NYLON","OASIS","OBESE","OCCUR","OCEAN","OCTAL","OCTET",
+  "ODDER","ODDLY","OFFAL","OFFER","OFTEN","OILED","OLDER","OLIVE","OMEGA","OMENS",
+  "ONION","ONSET","OOZED","OPERA","OPINE","OPIUM","OPTIC","ORBIT","ORDER","ORGAN",
+  "OTTER","OUGHT","OUNCE","OUTDO","OUTER","OUTGO","OVARY","OVATE","OVERT","OVINE",
+  "OWING","OWLET","OWNER","OXIDE","OZONE","PADDY","PAGAN","PAINT","PALER","PALSY",
+  "PANDA","PANEL","PANIC","PANSY","PAPAL","PAPER","PARER","PARKA","PARRY","PARTY",
+  "PASTA","PASTE","PASTY","PATCH","PATIO","PATSY","PATTY","PAUSE","PAYEE","PAYER",
+  "PEACE","PEACH","PECAN","PEDAL","PENAL","PENNY","PERCH","PERIL","PERKY","PESKY",
+  "PETAL","PETTY","PHASE","PHONE","PHONY","PHOTO","PIANO","PICKY","PIECE","PIETY",
+  "PIGGY","PILOT","PINCH","PINEY","PINKY","PINTO","PIOUS","PIPER","PIQUE","PITHY",
+  "PIVOT","PIXEL","PIXIE","PLACE","PLAID","PLAIN","PLAIT","PLANE","PLANK","PLANT",
+  "PLATE","PLAZA","PLEAD","PLEAT","PLIED","PLIER","PLUCK","PLUMB","PLUME","PLUMP",
+  "PLUNK","PLUSH","POESY","POINT","POISE","POKER","POLAR","POLKA","POLYP","PONCE",
+  "POPPY","PORCH","PORER","POSER","POSIT","POSSE","POUCH","POUND","POWER","PRANK",
+  "PRAWN","PRESS","PRICE","PRICK","PRIDE","PRIED","PRIME","PRIMO","PRIMP","PRINT",
+  "PRIOR","PRISM","PRIVY","PRIZE","PROBE","PRONE","PROOF","PROSE","PROUD","PROVE",
+  "PROWL","PROXY","PSALM","PULSE","PUNCH","PUPIL","PUPPY","PURGE","PURSE","PUSHY",
+  "PUTTY","PYGMY","QUACK","QUAIL","QUAKE","QUALM","QUARK","QUART","QUASH","QUASI",
+  "QUEEN","QUEER","QUELL","QUERY","QUEST","QUEUE","QUICK","QUIET","QUILL","QUILT",
+  "QUIRK","QUITE","QUOTA","QUOTE","RABBI","RABID","RACER","RADIO","RAINY","RAISE",
+  "RAJAH","RALLY","RAMEN","RANCH","RANGE","RAPID","RARER","RASPY","RATIO","RATTY",
+  "RAVEN","RAYON","RAZOR","REACH","REACT","READY","REALM","REARM","REBAR","REBEL",
+  "REBUS","REBUT","RECAP","RECUR","RECUT","REEFS","REFER","REHAB","REIGN","RELAX",
+  "RELAY","RELIC","REMIT","RENAL","RENEW","REPLY","RERUN","RESET","RESIN","RETCH",
+  "RETRO","RETRY","REUSE","REVEL","RHYME","RIDER","RIDGE","RIFLE","RIGHT","RIGID",
+  "RIGOR","RINSE","RIPEN","RIPER","RISEN","RISER","RISKY","RIVAL","RIVER","ROAST",
+  "ROBIN","ROBOT","ROCKY","RODEO","ROGER","ROGUE","ROMAN","ROOMS","ROOST","ROSIN",
+  "ROTTA","ROUGE","ROUGH","ROUND","ROUSE","ROUTE","ROVER","ROWDY","ROYAL","RUBIC",
+  "RUFFS","RUGBY","RULER","RUMBA","RUMOR","RURAL","RUSTY","SADLY","SAFER","SAINT",
+  "SALAD","SALON","SALSA","SALTY","SALVE","SALVO","SANDY","SANER","SAPPY","SASSY",
+  "SATIN","SATYR","SAUCE","SAUCY","SAUNA","SAUTE","SAVED","SAVOR","SCALD","SCALE",
+  "SCALP","SCAMP","SCANT","SCARE","SCARF","SCARY","SCENE","SCENT","SCHWA","SCION",
+  "SCOFF","SCOLD","SCOOP","SCOPE","SCORE","SCORN","SCOUR","SCOUT","SCREW","SCRUB",
+  "SCRUM","SEALS","SEAMS","SEATS","SEDAN","SEDGE","SEEDS","SEEMS","SEIZE","SENSE",
+  "SEPIA","SERIF","SERUM","SERVE","SETUP","SEVEN","SEVER","SEWED","SEWER","SHACK",
+  "SHADE","SHADY","SHAFT","SHAKE","SHAKY","SHALE","SHALL","SHALT","SHAME","SHAPE",
+  "SHARD","SHARE","SHARK","SHARP","SHAVE","SHAWL","SHEAR","SHEEN","SHEEP","SHEER",
+  "SHEET","SHELF","SHELL","SHIFT","SHILL","SHINE","SHINY","SHIRE","SHIRK","SHIRT",
+  "SHOAL","SHOCK","SHONE","SHOOK","SHOOT","SHORE","SHORN","SHORT","SHOUL","SHOUT",
+  "SHOVE","SHOWN","SHOWY","SHRED","SHREW","SHRUB","SHRUG","SHUCK","SIEGE","SIEVE",
+  "SIGHT","SIGMA","SILLY","SINCE","SINEW","SINGE","SIREN","SISSY","SIXTH","SIXTY",
+  "SIZED","SKATE","SKEIN","SKIER","SKIFF","SKILL","SKIMP","SKIRT","SKULK","SKULL",
+  "SKUNK","SLACK","SLAIN","SLANG","SLASH","SLATE","SLAVE","SLEEK","SLEEP","SLEET",
+  "SLICE","SLICK","SLIDE","SLIME","SLIMY","SLING","SLINK","SLOOP","SLOPE","SLOSH",
+  "SLOTH","SLUMP","SLUNG","SLUNK","SLURP","SMACK","SMALL","SMART","SMEAR","SMELL",
+  "SMELT","SMILE","SMIRK","SMITE","SMITH","SMOCK","SMOKE","SMOKY","SMOTE","SNAIL",
+  "SNAKE","SNAKY","SNAPS","SNARE","SNARL","SNEAK","SNEER","SNIDE","SNIFF","SNIPE",
+  "SNOBB","SNOOP","SNORE","SNORT","SNOUT","SNOWY","SNUCK","SOAPY","SOBER","SOGGY",
+  "SOLAR","SOLID","SOLVE","SONAR","SONIC","SOOTH","SOOTY","SORRY","SOTTO","SOUND",
+  "SOUTH","SPACE","SPADE","SPANK","SPARE","SPARK","SPASM","SPAWN","SPEAK","SPEAR",
+  "SPECK","SPEED","SPELL","SPELT","SPEND","SPENT","SPERM","SPICE","SPICY","SPIED",
+  "SPIEL","SPIKE","SPILL","SPILT","SPINE","SPIRE","SPITE","SPLAY","SPLIT","SPOIL",
+  "SPOKE","SPOOF","SPOOK","SPOOL","SPOON","SPORE","SPORT","SPRAY","SPURT","SQUAD",
+  "SQUAT","SQUID","STACK","STAFF","STAGE","STAID","STAIN","STAIR","STAKE","STALE",
+  "STALK","STALL","STAMP","STAND","STANK","STARE","STARK","START","STASH","STATE",
+  "STAVE","STEAD","STEAK","STEAL","STEAM","STEED","STEEL","STEEP","STEER","STEMS",
+  "STERN","STICK","STIFF","STILL","STILT","STING","STINK","STINT","STOCK","STOIC",
+  "STOKE","STOLE","STOMP","STONE","STONY","STOOD","STOOL","STOOP","STORE","STORK",
+  "STORM","STORY","STOUT","STOVE","STRAP","STRAW","STRAY","STREP","STRIP","STRUM",
+  "STRUT","STUCK","STUDY","STUFF","STUMP","STUNG","STUNK","STUNT","STYLE","SUAVE",
+  "SUGAR","SUING","SUITE","SULKY","SULLY","SUMAC","SUNNY","SUPER","SURER","SURGE",
+  "SURLY","SUSHI","SWAMI","SWAMP","SWARM","SWATH","SWEAR","SWEAT","SWEEP","SWEET",
+  "SWELL","SWEPT","SWIFT","SWILL","SWINE","SWING","SWIRL","SWISH","SWOON","SWOOP",
+  "SWORD","SWORE","SWORN","SWUNG","SYCAM","SYRUP","TABBY","TABLE","TABOO","TACIT",
+  "TAFFY","TAINT","TAKEN","TAKER","TALLY","TALON","TAMER","TANGO","TANGY","TAPER",
+  "TAPIR","TARES","TARRY","TASTE","TASTY","TATTY","TAUNT","TAWNY","TEACH","TEARY",
+  "TEASE","TEDDY","TEENS","TEENY","TEMPO","TEMPT","TENET","TENOR","TENSE","TENTH",
+  "TEPEE","TEPID","TERMS","THANK","THEFT","THEIR","THEME","THERE","THICK","THIEF",
+  "THIGH","THING","THINK","THIRD","THONG","THORN","THOSE","THREE","THREW","THROB",
+  "THROW","THUGS","THUMB","THUMP","THYME","TIARA","TIBIA","TIDAL","TIGER","TIGHT",
+  "TILDE","TIMER","TIMID","TIPSY","TIRED","TISSU","TITAN","TITHE","TITLE","TIZZY",
+  "TOADY","TOAST","TODAY","TOKEN","TONAL","TONER","TONIC","TOOTH","TOPAZ","TOPIC",
+  "TORCH","TOTAL","TOTEM","TOUCH","TOUGH","TOWEL","TOWER","TOXIC","TOXIN","TRACE",
+  "TRACK","TRACT","TRADE","TRAIL","TRAIN","TRAIT","TRAMP","TRASH","TRAWL","TREAD",
+  "TREAT","TREND","TRIAD","TRIAL","TRIBE","TRICK","TRIED","TRILL","TRIPE","TROLL",
+  "TROOP","TROTH","TROUT","TROVE","TRUCE","TRUCK","TRUER","TRULY","TRUMP","TRUNK",
+  "TRUSS","TRUST","TRUTH","TRYST","TUBAL","TUBAS","TULIP","TUMOR","TUNIC","TWANG",
+  "TWEAK","TWEED","TWICE","TWILL","TWINE","TWIRL","TWIST","TYING","UDDER","ULCER",
+  "ULTRA","UMBER","UMBRA","UNABLE","UNDER","UNDID","UNFED","UNFIT","UNIFY","UNION",
+  "UNITE","UNITY","UNLIT","UNTIE","UNTIL","UPPER","UPSET","URBAN","USAGE","USHER",
+  "USUAL","USURP","USURY","UTTER","VAGUE","VALET","VALID","VALOR","VALUE","VALVE",
+  "VAPID","VAPOR","VAULT","VAUNT","VELDT","VENOM","VERGE","VERSE","VEXED","VIAND",
+  "VICAR","VIDEO","VIGIL","VIGOR","VILLA","VINYL","VIOLA","VIPER","VIRAL","VIRUS",
+  "VISIT","VISOR","VISTA","VITAL","VIVID","VIXEN","VOCAL","VODKA","VOGUE","VOICE",
+  "VOLTS","VOMIT","VOTER","VOUCH","VOWEL","VYING","WACKY","WAFER","WAGER","WAGES",
+  "WAGON","WAIST","WALKS","WALTZ","WANED","WANNA","WANTS","WARDEN","WARES","WARTS",
+  "WASPY","WASTE","WATCH","WATER","WAVED","WAVER","WAXEN","WEALD","WEARY","WEAVE",
+  "WEDGE","WEEDS","WEEKS","WEIGH","WEIRD","WELCH","WELLS","WELTS","WENCH","WHACK",
+  "WHALE","WHARF","WHEAT","WHEEL","WHELP","WHERE","WHICH","WHIFF","WHILE","WHINE",
+  "WHINY","WHIRL","WHISK","WHITE","WHOLE","WHOOP","WHOSE","WIDEN","WIDER","WIDOW",
+  "WIDTH","WIELD","WIGHT","WIMPY","WINCE","WINCH","WINDY","WIPER","WIRED","WISER",
+  "WISPY","WITCH","WITTY","WOMAN","WOMBS","WOODY","WOOER","WOOZY","WORDS","WORDY",
+  "WORLD","WORRY","WORSE","WORST","WORTH","WOULD","WOUND","WRACK","WRAST","WRATH",
+  "WREAK","WRECK","WREST","WRING","WRIST","WRITE","WRONG","WROTE","WRUNG","YACHT",
+  "YARNS","YEAST","YIELD","YOUNG","YOUTH","ZEBRA","ZIMMS","ZINGS","ZIPPY","ZLOTY",
+  "ZONAL","ZONES","ZOOMS"
+];
+ALLOWED_EXTRA.forEach(w => ALLOWED_SET.add(w));
+ANSWERS.forEach(a => { if (a.word.length === 5) ALLOWED_SET.add(a.word); });
+
+const ANSWER_MAP = {};
+ANSWERS.forEach(a => { ANSWER_MAP[a.word] = { def: a.def, ex: a.ex }; });
+
+const DAILY_EPOCH = new Date('2026-01-01');
+const MS_PER_DAY = 86400000;
+const MAX_GUESSES = 6;
+
+const $board      = document.getElementById('board');
+const $keyboard   = document.getElementById('keyboard');
+const $toastCont  = document.getElementById('toastContainer');
+const $ariaLive   = document.getElementById('ariaLive');
+const $btnHelp    = document.getElementById('btnHelp');
+const $btnStats   = document.getElementById('btnStats');
+const $btnDaily   = document.getElementById('btnDaily');
+const $btnUnlimited = document.getElementById('btnUnlimited');
+const $helpModal  = document.getElementById('helpModal');
+const $statsModal = document.getElementById('statsModal');
+const $resultModal = document.getElementById('resultModal');
+const $resultPanel = document.getElementById('resultPanel');
+const $statSummary = document.getElementById('statSummary');
+const $guessDist   = document.getElementById('guessDist');
+
+let state = {
+  mode: 'daily',
+  answer: '',
+  currentRow: 0,
+  currentCol: 0,
+  guesses: ['','','','','',''],
+  evaluations: [null,null,null,null,null,null],
+  gameOver: false,
+  won: false,
+  animating: false,
+};
+
+const LS_DAILY_KEY = 'pangea8_dailyState';
+const LS_STATS_KEY = 'pangea8_stats';
+const LS_UNLIMITED_KEY = 'pangea8_unlimitedState';
+
+function loadJSON(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e) { return fallback; }
+}
+function saveJSON(key, obj) {
+  try { localStorage.setItem(key, JSON.stringify(obj)); } catch(e) {}
+}
+
+function getStats() {
+  return loadJSON(LS_STATS_KEY, {
+    played: 0, wins: 0, currentStreak: 0, maxStreak: 0,
+    guessDistribution: [0,0,0,0,0,0]
+  });
+}
+function saveStats(s) { saveJSON(LS_STATS_KEY, s); }
+
+function getDailyState() {
+  return loadJSON(LS_DAILY_KEY, { date: '', answer: '', guesses: ['','','','','',''], evaluations: [null,null,null,null,null,null], gameOver: false, won: false });
+}
+function saveDailyState(ds) { saveJSON(LS_DAILY_KEY, ds); }
+
+function getUnlimitedState() {
+  return loadJSON(LS_UNLIMITED_KEY, { answer:'', guesses: ['','','','','',''], evaluations: [null,null,null,null,null,null], gameOver: false, won: false });
+}
+function saveUnlimitedState(us) { saveJSON(LS_UNLIMITED_KEY, us); }
+
+function getTodayUTCDateString() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function getDailyWordIndex() {
+  const now = new Date();
+  const utcToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const epochUtc = Date.UTC(DAILY_EPOCH.getUTCFullYear(), DAILY_EPOCH.getUTCMonth(), DAILY_EPOCH.getUTCDate());
+  const daysSince = Math.floor((utcToday - epochUtc) / MS_PER_DAY);
+  return ((daysSince % ANSWERS.length) + ANSWERS.length) % ANSWERS.length;
+}
+function getDailyWord() {
+  return ANSWERS[getDailyWordIndex()].word;
+}
+
+function getRandomAnswer() {
+  return ANSWERS[Math.floor(Math.random() * ANSWERS.length)].word;
+}
+
+function evaluateGuess(guess, answer) {
+  const result = Array(5).fill('absent');
+  const answerArr = answer.split('');
+  const consumed = Array(5).fill(false);
+  for (let i = 0; i < 5; i++) {
+    if (guess[i] === answerArr[i]) { result[i] = 'correct'; consumed[i] = true; }
+  }
+  for (let i = 0; i < 5; i++) {
+    if (result[i] === 'correct') continue;
+    for (let j = 0; j < 5; j++) {
+      if (!consumed[j] && guess[i] === answerArr[j]) {
+        result[i] = 'present'; consumed[j] = true; break;
+      }
+    }
+  }
+  return result;
+}
+
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  $toastCont.appendChild(el);
+  el.addEventListener('animationend', (e) => {
+    if (e.animationName === 'toastOut') el.remove();
+  });
+}
+
+function announce(msg) {
+  $ariaLive.textContent = '';
+  requestAnimationFrame(() => { $ariaLive.textContent = msg; });
+}
+
+let keyStates = {};
+
+function updateKeyStates() {
+  const newStates = {};
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const evalRow = state.evaluations[r];
+    if (!evalRow) continue;
+    const guess = state.guesses[r];
+    for (let c = 0; c < 5; c++) {
+      const letter = guess[c];
+      const status = evalRow[c];
+      const prev = newStates[letter];
+      if (!prev || (status === 'correct') ||
+          (status === 'present' && prev === 'absent') ||
+          (status === 'absent' && !prev)) {
+        if (!prev || status === 'correct' || (status === 'present' && prev !== 'correct')) {
+          newStates[letter] = status;
+        }
+      }
+    }
+  }
+  const finalStates = {};
+  for (const [l, s] of Object.entries(newStates)) {
+    const old = keyStates[l];
+    if (!old || s === 'correct' || (s === 'present' && old === 'absent')) {
+      finalStates[l] = s;
+    } else { finalStates[l] = old; }
+  }
+  for (const [l, s] of Object.entries(keyStates)) {
+    if (!(l in finalStates)) finalStates[l] = s;
+  }
+  keyStates = finalStates;
+}
+
+function renderBoard() {
+  $board.innerHTML = '';
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', `Row ${r+1}`);
+    const evalRow = state.evaluations[r];
+    const guess = state.guesses[r];
+    for (let c = 0; c < 5; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      if (evalRow) { tile.classList.add(evalRow[c]); }
+      const letter = guess[c] || '';
+      tile.textContent = letter;
+      if (letter && !evalRow) tile.classList.add('filled');
+      let ariaLabel = `Row ${r+1}, letter ${c+1}`;
+      if (letter) ariaLabel += `, ${letter}`;
+      if (evalRow) {
+        const statusLabel = {correct:'correct', present:'present but wrong spot', absent:'not in word'}[evalRow[c]] || '';
+        ariaLabel += `, ${statusLabel}`;
+      } else { ariaLabel += ', empty'; }
+      tile.setAttribute('aria-label', ariaLabel);
+      tile.setAttribute('role', 'gridcell');
+      row.appendChild(tile);
+    }
+    $board.appendChild(row);
+  }
+}
+
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','BACKSPACE']
+];
+
+function renderKeyboard() {
+  $keyboard.innerHTML = '';
+  KB_ROWS.forEach((keys, ri) => {
+    const row = document.createElement('div');
+    row.className = 'kb-row';
+    if (ri === 2) {
+      const sp = document.createElement('div');
+      sp.className = 'spacer-half';
+      row.appendChild(sp);
+    }
+    keys.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      if (k === 'ENTER' || k === 'BACKSPACE') btn.classList.add('wide');
+      const status = keyStates[k] || '';
+      if (status) btn.classList.add(status);
+      if (k === 'ENTER') {
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+        btn.setAttribute('aria-label', 'Enter');
+      } else if (k === 'BACKSPACE') {
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>';
+        btn.setAttribute('aria-label', 'Backspace');
+      } else {
+        btn.textContent = k;
+        btn.setAttribute('aria-label', k);
+      }
+      btn.addEventListener('click', () => handleKeyPress(k));
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.click(); });
+      row.appendChild(btn);
+    });
+    if (ri === 2) {
+      const sp = document.createElement('div');
+      sp.className = 'spacer-half';
+      row.appendChild(sp);
+    }
+    $keyboard.appendChild(row);
+  });
+}
+
+function handleKeyPress(key) {
+  if (state.gameOver || state.animating) return;
+  if (key === 'ENTER') { submitGuess(); }
+  else if (key === 'BACKSPACE') { deleteLetter(); }
+  else if (/^[A-Z]$/.test(key)) { typeLetter(key); }
+}
+
+function typeLetter(letter) {
+  if (state.currentCol >= 5) return;
+  state.guesses[state.currentRow] =
+    (state.guesses[state.currentRow] || '').padEnd(state.currentCol, ' ') + letter;
+  state.currentCol++;
+  renderBoard();
+  const rowEl = $board.children[state.currentRow];
+  if (rowEl) {
+    const tileEl = rowEl.children[state.currentCol - 1];
+    if (tileEl) {
+      tileEl.classList.remove('filled');
+      void tileEl.offsetWidth;
+      tileEl.classList.add('filled');
+    }
+  }
+  saveState();
+}
+
+function deleteLetter() {
+  if (state.currentCol <= 0) return;
+  state.currentCol--;
+  const g = state.guesses[state.currentRow] || '';
+  state.guesses[state.currentRow] = g.slice(0, state.currentCol);
+  renderBoard();
+  saveState();
+}
+
+function submitGuess() {
+  if (state.currentCol !== 5) {
+    showToast('Not enough letters');
+    shakeRow(state.currentRow);
+    return;
+  }
+  const guess = state.guesses[state.currentRow].toUpperCase();
+  if (!ALLOWED_SET.has(guess)) {
+    showToast('Not in word list');
+    shakeRow(state.currentRow);
+    return;
+  }
+  state.animating = true;
+  const evaluation = evaluateGuess(guess, state.answer);
+  state.evaluations[state.currentRow] = evaluation;
+  updateKeyStates();
+  renderKeyboard();
+  const rowEl = $board.children[state.currentRow];
+  if (rowEl) {
+    const tiles = rowEl.children;
+    for (let c = 0; c < 5; c++) {
+      const tile = tiles[c];
+      tile.style.animationDelay = `${c * 0.25}s`;
+      tile.classList.add('reveal');
+      const delay = c * 250 + 125;
+      setTimeout(() => { tile.classList.add(evaluation[c]); }, delay);
+    }
+  }
+  const totalFlipTime = 5 * 250 + 100;
+  setTimeout(() => {
+    state.animating = false;
+    renderBoard();
+    const won = evaluation.every(s => s === 'correct');
+    if (won) {
+      state.won = true;
+      state.gameOver = true;
+      announce('Congratulations! You got it!');
+      const rowEl2 = $board.children[state.currentRow];
+      if (rowEl2) {
+        rowEl2.classList.add('bounce');
+        const tls = rowEl2.children;
+        for (let c = 0; c < 5; c++) { tls[c].style.animationDelay = `${c * 0.07}s`; }
+      }
+      saveState();
+      updateStats(true);
+      setTimeout(() => showResultModal(true), 600);
+    } else if (state.currentRow >= MAX_GUESSES - 1) {
+      state.gameOver = true;
+      announce(`Game over. The word was ${state.answer}.`);
+      saveState();
+      updateStats(false);
+      setTimeout(() => showResultModal(false), 600);
+    } else {
+      state.currentRow++;
+      state.currentCol = 0;
+      saveState();
+    }
+  }, totalFlipTime);
+}
+
+function shakeRow(rowIdx) {
+  const rowEl = $board.children[rowIdx];
+  if (!rowEl) return;
+  rowEl.classList.remove('shake');
+  void rowEl.offsetWidth;
+  rowEl.classList.add('shake');
+  announce('Invalid word. Try again.');
+}
+
+function updateStats(won) {
+  const s = getStats();
+  s.played++;
+  if (won) {
+    s.wins++;
+    s.currentStreak++;
+    if (s.currentStreak > s.maxStreak) s.maxStreak = s.currentStreak;
+    const guessNum = state.currentRow + 1;
+    s.guessDistribution[guessNum - 1]++;
+  } else { s.currentStreak = 0; }
+  saveStats(s);
+}
+
+function renderStatsModal() {
+  const s = getStats();
+  const winPct = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
+  $statSummary.innerHTML = `
+    <div><div class="ss-num">${s.played}</div><div class="ss-label">Played</div></div>
+    <div><div class="ss-num">${winPct}%</div><div class="ss-label">Win %</div></div>
+    <div><div class="ss-num">${s.currentStreak}</div><div class="ss-label">Streak</div></div>
+    <div><div class="ss-num">${s.maxStreak}</div><div class="ss-label">Max</div></div>
+  `;
+  const maxDist = Math.max(...s.guessDistribution, 1);
+  $guessDist.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const count = s.guessDistribution[i];
+    const pct = Math.max((count / maxDist) * 100, count > 0 ? 5 : 0);
+    $guessDist.innerHTML += `
+      <div class="stat-row">
+        <span class="stat-label">${i+1}</span>
+        <span class="stat-bar-wrap"><span class="stat-bar${count===0?' zero':''}" style="width:${pct}%"></span></span>
+        <span class="stat-count">${count}</span>
+      </div>`;
+  }
+}
+
+function showResultModal(won) {
+  const word = state.answer;
+  const info = ANSWER_MAP[word] || { def: 'Definition not available.', ex: '' };
+  const guessCount = state.currentRow + 1;
+  let title = won ? '🎉 You Got It!' : '😔 Better Luck Next Time';
+  let subtitle = won ? `Solved in ${guessCount}/6` : `The word was:`;
+  $resultPanel.innerHTML = `
+    <button class="close-modal" aria-label="Close" id="btnResultClose">&times;</button>
+    <h2>${title}</h2>
+    <p style="text-align:center;color:var(--text-dim);">${subtitle}</p>
+    <div class="answer-word">${word}</div>
+    <div class="definition-block">
+      <div class="def-label">📖 Definition</div>
+      <div class="def-text">${info.def}</div>
+      ${info.ex ? `<div class="def-example">"${info.ex}"</div>` : ''}
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-primary" id="btnShare">📋 Share</button>
+      ${state.mode === 'unlimited'
+        ? '<button class="btn btn-secondary" id="btnPlayAgain">🔄 Play Again</button>'
+        : '<button class="btn btn-secondary" id="btnComeBack">⏳ Come Back Tomorrow</button>'}
+    </div>
+  `;
+  $resultModal.classList.remove('hidden');
+  document.getElementById('btnResultClose').addEventListener('click', closeResultModal);
+  document.getElementById('btnShare').addEventListener('click', shareResult);
+  if (state.mode === 'unlimited') {
+    document.getElementById('btnPlayAgain').addEventListener('click', resetUnlimited);
+  } else {
+    document.getElementById('btnComeBack').addEventListener('click', closeResultModal);
+  }
+}
+
+function closeResultModal() { $resultModal.classList.add('hidden'); }
+
+function buildEmojiGrid() {
+  const lines = [];
+  for (let r = 0; r <= state.currentRow; r++) {
+    const evalRow = state.evaluations[r];
+    if (!evalRow) break;
+    let line = '';
+    for (let c = 0; c < 5; c++) {
+      if (evalRow[c] === 'correct') line += '🟩';
+      else if (evalRow[c] === 'present') line += '🟨';
+      else line += '⬛';
+    }
+    lines.push(line);
+  }
+  return lines.join('\n');
+}
+
+async function shareResult() {
+  const wordNum = getDailyWordIndex() + 1;
+  const guessCount = state.currentRow + 1;
+  const won = state.won;
+  const lines = [
+    `pangea8 word #${wordNum}  ${won ? guessCount + '/6' : 'X/6'}`,
+    '',
+    buildEmojiGrid(),
+  ];
+  const text = lines.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied! 📋');
+  } catch(e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copied! 📋');
+    } catch(e2) { showToast('Could not copy. Tap to retry.'); }
+  }
+}
+
+function openHelp() { $helpModal.classList.remove('hidden'); }
+function closeHelp() { $helpModal.classList.add('hidden'); }
+function openStats() { renderStatsModal(); $statsModal.classList.remove('hidden'); }
+function closeStats() { $statsModal.classList.add('hidden'); }
+
+function closeAllModals() {
+  $helpModal.classList.add('hidden');
+  $statsModal.classList.add('hidden');
+  $resultModal.classList.add('hidden');
+}
+
+function switchMode(mode) {
+  if (state.animating) return;
+  if (mode === state.mode) return;
+  saveState();
+  state.mode = mode;
+  if (mode === 'daily') {
+    $btnDaily.classList.add('active');
+    $btnDaily.setAttribute('aria-checked', 'true');
+    $btnUnlimited.classList.remove('active');
+    $btnUnlimited.setAttribute('aria-checked', 'false');
+    loadDailyGame();
+  } else {
+    $btnUnlimited.classList.add('active');
+    $btnUnlimited.setAttribute('aria-checked', 'true');
+    $btnDaily.classList.remove('active');
+    $btnDaily.setAttribute('aria-checked', 'false');
+    loadUnlimitedGame();
+  }
+  keyStates = {};
+  updateKeyStates();
+  renderBoard();
+  renderKeyboard();
+  closeAllModals();
+}
+
+function loadDailyGame() {
+  const today = getTodayUTCDateString();
+  const ds = getDailyState();
+  const dailyWord = getDailyWord();
+  if (ds.date === today && ds.answer === dailyWord) {
+    state.answer = ds.answer;
+    state.guesses = ds.guesses;
+    state.evaluations = ds.evaluations;
+    state.gameOver = ds.gameOver;
+    state.won = ds.won;
+    state.currentRow = 0;
+    state.currentCol = 0;
+    for (let r = 0; r < MAX_GUESSES; r++) {
+      if (state.evaluations[r]) {
+        state.currentRow = r + 1;
+        state.currentCol = 0;
+      } else if (state.guesses[r] && state.guesses[r].length > 0) {
+        state.currentRow = r;
+        state.currentCol = state.guesses[r].length;
+        break;
+      } else { state.currentRow = r; state.currentCol = 0; break; }
+    }
+    if (state.gameOver) {
+      state.currentRow = Math.min(state.currentRow, MAX_GUESSES - 1);
+      state.currentCol = 5;
+    }
+    if (state.currentRow >= MAX_GUESSES) {
+      state.currentRow = MAX_GUESSES - 1;
+      state.currentCol = 5;
+    }
+  } else {
+    state.answer = dailyWord;
+    state.guesses = ['','','','','',''];
+    state.evaluations = [null,null,null,null,null,null];
+    state.gameOver = false;
+    state.won = false;
+    state.currentRow = 0;
+    state.currentCol = 0;
+    saveDailyState({ date: today, answer: dailyWord, guesses: ['','','','','',''], evaluations: [null,null,null,null,null,null], gameOver: false, won: false });
+  }
+  keyStates = {};
+  rebuildKeyStates();
+  renderBoard();
+  renderKeyboard();
+  announce('Daily mode. Guess the word!');
+}
+
+function loadUnlimitedGame() {
+  const us = getUnlimitedState();
+  if (us.answer && !us.gameOver) {
+    state.answer = us.answer;
+    state.guesses = us.guesses;
+    state.evaluations = us.evaluations;
+    state.gameOver = us.gameOver;
+    state.won = us.won;
+    state.currentRow = 0;
+    state.currentCol = 0;
+    for (let r = 0; r < MAX_GUESSES; r++) {
+      if (state.evaluations[r]) {
+        state.currentRow = r + 1;
+        state.currentCol = 0;
+      } else if (state.guesses[r] && state.guesses[r].length > 0) {
+        state.currentRow = r;
+        state.currentCol = state.guesses[r].length;
+        break;
+      } else { state.currentRow = r; state.currentCol = 0; break; }
+    }
+    if (state.gameOver) {
+      state.currentRow = Math.min(state.currentRow, MAX_GUESSES - 1);
+      state.currentCol = 5;
+    }
+    if (state.currentRow >= MAX_GUESSES) {
+      state.currentRow = MAX_GUESSES - 1;
+      state.currentCol = 5;
+    }
+  } else { resetUnlimited(); return; }
+  keyStates = {};
+  rebuildKeyStates();
+  renderBoard();
+  renderKeyboard();
+  announce('Unlimited mode. Guess the word!');
+}
+
+function resetUnlimited() {
+  const word = getRandomAnswer();
+  state.answer = word;
+  state.guesses = ['','','','','',''];
+  state.evaluations = [null,null,null,null,null,null];
+  state.gameOver = false;
+  state.won = false;
+  state.currentRow = 0;
+  state.currentCol = 0;
+  keyStates = {};
+  saveUnlimitedState({ answer: word, guesses: ['','','','','',''], evaluations: [null,null,null,null,null,null], gameOver: false, won: false });
+  renderBoard();
+  renderKeyboard();
+  closeAllModals();
+  announce('New game! Guess the 5-letter word.');
+}
+
+function rebuildKeyStates() {
+  keyStates = {};
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const evalRow = state.evaluations[r];
+    if (!evalRow) continue;
+    const guess = state.guesses[r];
+    for (let c = 0; c < 5; c++) {
+      const letter = guess[c];
+      const status = evalRow[c];
+      const prev = keyStates[letter];
+      if (!prev || status === 'correct' || (status === 'present' && prev === 'absent')) {
+        keyStates[letter] = status;
+      }
+    }
+  }
+}
+
+function saveState() {
+  if (state.mode === 'daily') {
+    saveDailyState({
+      date: getTodayUTCDateString(),
+      answer: state.answer,
+      guesses: [...state.guesses],
+      evaluations: state.evaluations.map(e => e ? [...e] : null),
+      gameOver: state.gameOver,
+      won: state.won
+    });
+  } else {
+    saveUnlimitedState({
+      answer: state.answer,
+      guesses: [...state.guesses],
+      evaluations: state.evaluations.map(e => e ? [...e] : null),
+      gameOver: state.gameOver,
+      won: state.won
+    });
+  }
+}
+
+function handlePhysicalKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (state.animating) return;
+  if (e.key === 'Enter') { e.preventDefault(); handleKeyPress('ENTER'); }
+  else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); handleKeyPress('BACKSPACE'); }
+  else {
+    const letter = e.key.toUpperCase();
+    if (/^[A-Z]$/.test(letter)) { e.preventDefault(); handleKeyPress(letter); }
+  }
+}
+
+function init() {
+  $btnHelp.addEventListener('click', openHelp);
+  document.getElementById('btnHelpClose').addEventListener('click', closeHelp);
+  $btnStats.addEventListener('click', openStats);
+  document.getElementById('btnStatsClose').addEventListener('click', closeStats);
+  $btnDaily.addEventListener('click', () => switchMode('daily'));
+  $btnUnlimited.addEventListener('click', () => switchMode('unlimited'));
+  [$helpModal, $statsModal, $resultModal].forEach(m => {
+    m.addEventListener('click', (e) => { if (e.target === m) { m.classList.add('hidden'); } });
+  });
+  document.addEventListener('keydown', handlePhysicalKey);
+  loadDailyGame();
+  renderBoard();
+  renderKeyboard();
+  announce('pangea8 word game. Guess the 5-letter word. You have 6 tries.');
+}
+
+init();
+</script>
+</body>
+</html>
