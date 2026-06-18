@@ -6,13 +6,13 @@
 <meta name="theme-color" content="#0B0F0E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>pangea8 · word game</title>
-<meta name="description" content="A Wordle-style word game by pangea8 — guess the 5-letter word in 6 tries. IELTS vocabulary trainer.">
+<title>pierics · word game</title>
+<meta name="description" content="A Wordle-style word game by pierics — guess the 5-letter word in 6 tries. IELTS vocabulary trainer.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-/* ============ CSS VARIABLES — pangea8 brand ============ */
+/* ============ CSS VARIABLES — pierics brand ============ */
 :root {
   --bg:        #0B0F0E;
   --panel:     #121A17;
@@ -553,7 +553,7 @@ body::before {
 <body>
 
 <header class="header" role="banner">
-  <div class="brand" aria-label="pangea8 word game">
+  <div class="brand" aria-label="pierics word game">
     <svg viewBox="0 0 100 100" width="34" height="34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <g stroke="#3DDC91" stroke-width="7" stroke-linecap="round">
         <line x1="50" y1="12" x2="50" y2="34"/>
@@ -566,7 +566,7 @@ body::before {
         <line x1="38" y1="62" x2="23" y2="77"/>
       </g>
     </svg>
-    <span class="wordmark">pangea<span class="eight">8</span></span>
+    <span class="wordmark">pierics</span>
   </div>
   <div class="header-right">
     <button class="icon-btn" id="btnHelp" aria-label="How to play" title="How to play">?</button>
@@ -642,7 +642,7 @@ body::before {
 
 <script>
 /* ==================================================================
-   pangea8 Word Game — vanilla JS, no dependencies
+   pierics Word Game — vanilla JS, no dependencies
    ================================================================== */
 
 const ANSWERS = [
@@ -1129,9 +1129,9 @@ let state = {
   animating: false,
 };
 
-const LS_DAILY_KEY = 'pangea8_dailyState';
-const LS_STATS_KEY = 'pangea8_stats';
-const LS_UNLIMITED_KEY = 'pangea8_unlimitedState';
+const LS_DAILY_KEY = 'pierics_dailyState';
+const LS_STATS_KEY = 'pierics_stats';
+const LS_UNLIMITED_KEY = 'pierics_unlimitedState';
 
 function loadJSON(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -1515,7 +1515,7 @@ async function shareResult() {
   const guessCount = state.currentRow + 1;
   const won = state.won;
   const lines = [
-    `pangea8 word #${wordNum}  ${won ? guessCount + '/6' : 'X/6'}`,
+    `pierics word #${wordNum}  ${won ? guessCount + '/6' : 'X/6'}`,
     '',
     buildEmojiGrid(),
   ];
@@ -1737,7 +1737,7 @@ function init() {
   loadDailyGame();
   renderBoard();
   renderKeyboard();
-  announce('pangea8 word game. Guess the 5-letter word. You have 6 tries.');
+  announce('pierics word game. Guess the 5-letter word. You have 6 tries.');
 }
 
 init();
